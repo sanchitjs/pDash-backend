@@ -385,4 +385,4 @@ def on_particular_robot(plantID,robot_id):
         
 if(__name__ == "__main__"):
     # app.run(host = "192.168.1.9",debug=True)
-    app.run()
+    app.run(debug=True)
