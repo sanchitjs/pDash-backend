@@ -341,7 +341,8 @@ def get_cd(plantID):
     return jsonify(get_data)
 
 
-@app.route('/all-robot-data/<plantID>')
+# @app.route('/all-robot-data/<plantID>')
+@app.route('all-robot-data/<plantID>')
 def index(plantID):
     data_dict = {}
     keys = func_keys(plantID)
