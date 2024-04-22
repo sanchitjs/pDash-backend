@@ -147,19 +147,32 @@ def pushDailyReport(plantID, hour, min, date, month, year):
         if(minutes_difference > 2):
             networkError += "," + str(key)[1]
 
-    if(len(otherError) == 0):
-        otherErrorLen = 0
-    else:
-        otherErrorLen = len(otherError[1:].split(','))
+    errors = {}
 
-    if(len(networkError) == 0):
-        networkErrorLen = 0
-    else:
-        networkErrorLen = len(networkError[1:].split(','))
+    if(len(otherError) != 0):
+        otherErrorList = otherError[1:].split(',')
+        for robots in otherErrorList:
+            errors[robots] = True
+
+        # otherErrorLen = len(otherError[1:].split(','))
+
+    if(len(networkError) != 0):
+        networkErrorList = networkError[1:].split(',')
+        for robots in networkErrorList:
+            if(errors[robots]==True):
+                continue
+            else:
+                errors[robots]=True
+
+        # networkErrorLen = len(networkError[1:].split(','))
     
-    workingRobots = robotsInstalled - (networkErrorLen + otherErrorLen)
+    workingRobots = robotsInstalled - (len(errors.keys()))
 
-    print(robotsInstalled,networkError,otherError,workingRobots)
+    # print(robotsInstalled,networkError,otherError,workingRobots)
+    # print("length",list(errors.keys()))
+    # print(', '.join([str(key) for key in errors.keys()]))
+
+    allErrors = ', '.join([str(key) for key in errors.keys()])
 
     timeKey = str(year)[2:] + "-" + str(month).zfill(2) + "-" + str(date).zfill(2) + " " + str(hour).zfill(2) + ":" + str(min).zfill(2)
 
@@ -167,6 +180,8 @@ def pushDailyReport(plantID, hour, min, date, month, year):
     db.reference(f'/{plantID}/DR/{timeKey}/WR').set(workingRobots)
     db.reference(f'/{plantID}/DR/{timeKey}/OE').set(otherError[1:])
     db.reference(f'/{plantID}/DR/{timeKey}/NE').set(networkError[1:])
+    db.reference(f'/{plantID}/DR/{timeKey}/ER').set(allErrors)
+
 
 def dailyReport_thread(plantID, hour, min, date, month, year):
     name = threading.current_thread().name
@@ -175,20 +190,16 @@ def dailyReport_thread(plantID, hour, min, date, month, year):
 
     lastDate = calendar.monthrange(year,month)[1]
 
-    # hour += 1
-    # min += 55
-    # if(min >= 60):
-    #     min = 60 - min
-    #     hour += 1
-    # if(hour >= 24):
-    #     hour = 0
-    #     date += 1
-    # if(date >= lastDate):
-    #     date = 1
-    #     month += 1
-    # if(month >= 13):
-    #     month = 1
-    #     year += 1
+    hour += 2
+    if(hour >= 24):
+        hour = hour - 24
+        date += 1
+    if(date >= lastDate):
+        date = 1
+        month += 1
+    if(month >= 13):
+        month = 1
+        year += 1
 
     while not dailyReport_interrupt_events[plantID].is_set():
         print(f"dailyReport : {name} iteration no. {i+1} for {plantID}")
@@ -208,6 +219,7 @@ def dailyReport_thread(plantID, hour, min, date, month, year):
         i += 1
     
     print(f"dailyReport : {name} completed for {plantID}")
+
 
 def funcForClearingAllTHeThreads(plantID):
     global scheduleOneTime_active_threads
@@ -268,7 +280,7 @@ def push_time(plantID):
     month = int(get_data['month'])
     year = int(get_data['year'])
 
-    print(get_data)
+    # print(get_data)
     db.reference(f'/{plantID}/CD/H').set(str(hour).zfill(2))
     db.reference(f'/{plantID}/CD/M').set(str(min).zfill(2))
     db.reference(f'/{plantID}/CD/DD').set(str(date).zfill(2))
@@ -276,14 +288,15 @@ def push_time(plantID):
     db.reference(f'/{plantID}/CD/YY').set(str(year))
     db.reference(f'/{plantID}/CD/SF').set(0)
     db.reference(f'/{plantID}/CD/UID').set(254)
+    taskSchedulerForOneTimeOperation(plantID, hour, min, date, month, year)
 
-    if(get_data['scheduleDaily']):
-        # db.reference(f'/{plantID}/CD/SD').set(1)
-        taskSchedulerForDailyOperations(plantID, hour, min, date, month, year)
+    # if(get_data['scheduleDaily']):
+    #     db.reference(f'/{plantID}/CD/SD').set(1)
+    #     # taskSchedulerForDailyOperations(plantID, hour, min, date, month, year)
     
-    else:
-        # db.reference(f'/{plantID}/CD/SD').set(0)
-        taskSchedulerForOneTimeOperation(plantID, hour, min, date, month, year)
+    # else:
+    #     db.reference(f'/{plantID}/CD/SD').set(0)
+    #     # taskSchedulerForOneTimeOperation(plantID, hour, min, date, month, year)
 
     return "200"
 
@@ -320,6 +333,10 @@ def func_keys(plantID):
 
     return keys
 
+# @app.route('/checkbox/<plantID>')
+# def checkbox(plantID):
+
+
 @app.route('/get-daily-report/<plantID>')
 def getDailyReport(plantID):
     data = db.reference(f"{plantID}/DR").order_by_key().limit_to_last(1).get()
@@ -329,6 +346,14 @@ def getDailyReport(plantID):
 def getMonthlyReport(plantID):
     data = db.reference(f"/{plantID}/DR").get()
     return jsonify(data)
+
+# @app.route('/robot-list/<plantID>')
+# def get_robot_list(plantID):
+#     keys = func_keys(plantID)
+#     page = int(request.args.get("page"))
+#     quantity = 10
+#     keys = sorted(keys,key=lambda x : int(x[1:]))
+#     return jsonify(keys[((page-1)*quantity):((page)*quantity)])\
 
 @app.route('/robot-list/<plantID>')
 def get_robot_list(plantID):
@@ -341,13 +366,51 @@ def get_cd(plantID):
     return jsonify(get_data)
 
 
+# @app.route('/all-robot-data/<plantID>')
+# def index(plantID):
+#     data_dict = {}
+#     keys = func_keys(plantID)
+
+#     # for  key in keys:
+#     #     data = db.reference(f"{plantID}/Robot/{key}").order_by_key().limit_to_last(1).get()
+#     #     print(data)
+#     #     data_dict[key] = data
+#     #     # for item in data.items():
+#     #     #     try:
+#     #     #         data_dict[key] = dict(item[1])
+#     #     #     except Exception as e:
+#     #     #         print(f"Error updating data_dict for key '{key}': {e}")
+#     #     #         print("Problematic data:", item[1])
+    
+#     page = int(request.args.get("page"))
+
+#     quantity = 10
+
+#     print(len(keys))
+
+#     for i in range(((page-1)*quantity)+1,((page)*quantity)+1):
+#         if(i == len(keys)+1):
+#             break
+#         print(i)
+#         data = db.reference(f"{plantID}/Robot/R{i}").order_by_key().limit_to_last(1).get()
+#         print(data)
+#         data_dict[f'R{i}'] = data
+
+#     # print(page,keys)
+
+#     return json.dumps(data_dict)
+#     # return "200"
+
 @app.route('/all-robot-data/<plantID>')
 def index(plantID):
     data_dict = {}
     keys = func_keys(plantID)
-    for  key in keys:
+
+    for key in keys:
         data = db.reference(f"{plantID}/Robot/{key}").order_by_key().limit_to_last(1).get()
         data_dict[key] = data
+
+    # data_dict = db.reference(f"{plantID}/Robot").get()
         # for item in data.items():
         #     try:
         #         data_dict[key] = dict(item[1])
