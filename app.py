@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import calendar
 import threading
+import os
 
 scheduleOneTime_active_threads = {}
 scheduleOneTime_interrupt_events = {}
@@ -316,7 +317,7 @@ def stop_scheduled_daily(plantID):
         dailyReport_active_threads[plantID].join()
 
 def func_keys(plantID):
-    database_url = 'https://test-35f13-default-rtdb.firebaseio.com/'
+    database_url = os.getenv("FIREBASE_DATABASE_URL")
     node_path = f"{plantID}/Robot.json?shallow=true"
     url = f'{database_url}{node_path}'
     response = requests.get(url)
