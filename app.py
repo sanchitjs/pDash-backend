@@ -407,11 +407,11 @@ def index(plantID):
     data_dict = {}
     keys = func_keys(plantID)
 
-    for key in keys:
-        data = db.reference(f"{plantID}/Robot/{key}").order_by_key().limit_to_last(1).get()
-        data_dict[key] = data
+    # for key in keys:
+    #     data = db.reference(f"{plantID}/Robot/{key}").order_by_key().limit_to_last(1).get()
+    #     data_dict[key] = data
 
-    # data_dict = db.reference(f"{plantID}/Robot").get()
+    data_dict = db.reference(f"{plantID}/Robot").get()
         # for item in data.items():
         #     try:
         #         data_dict[key] = dict(item[1])
